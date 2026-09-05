@@ -1,6 +1,10 @@
 import logging
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
+
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from config import BOT_TOKEN
 from database import init_db
 from handlers.start import (
@@ -37,6 +41,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+    
+    def log_message(self, format, *args):
+        pass  # لاگ نکنه
+
+def start_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
+
 def main():
     init_db()
 
@@ -68,6 +87,8 @@ def main():
     application.add_handler(CommandHandler("announce", announce_handler))
     application.add_handler(CommandHandler("shutdown", shutdown_handler))
 
+    t = threading.Thread(target=start_health_server, daemon=True)
+    t.start()
     print("🤖 ربات در حال راه‌اندازی...")
     application.run_polling()
 
